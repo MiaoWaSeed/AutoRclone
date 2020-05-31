@@ -305,7 +305,7 @@ def main():
         rclone_cmd += "--tpslimit {} --transfers {} --drive-chunk-size 32M ".format(TPSLIMIT, TRANSFERS)
         if args.disable_list_r:
             rclone_cmd += "--disable ListR "
-        rclone_cmd += "--drive-acknowledge-abuse --log-file={} \"{}\" \"{}\"".format(logfile, src_full_path,
+        rclone_cmd += "--drive-acknowledge-abuse --ignore-checksum --log-file={} \"{}\" \"{}\"".format(logfile, src_full_path,
                                                                                      dst_full_path)
 
         if not is_windows():
