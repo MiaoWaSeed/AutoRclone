@@ -311,7 +311,7 @@ def main():
         rclone_cmd += "--ignore-existing "
         rclone_cmd += "--ignore-checksum "
         rclone_cmd += "\"{}\" \"{}\" ".format(src_full_path, dst_full_path)
-        rclone_cmd += "--log-file={} --log-level{} ".format(logfile, args.log_level)
+        rclone_cmd += "--log-file={} --log-level {} ".format(logfile, args.log_level)
 
         if not is_windows():
             rclone_cmd = rclone_cmd + " &"
