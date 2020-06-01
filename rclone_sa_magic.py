@@ -1,19 +1,3 @@
-# auto rclone
-#
-# Author Telegram https://t.me/CodyDoby
-# Inbox  codyd@qq.com
-#
-# can copy from
-# - [x] publicly shared folder to Team Drive
-# - [x] Team Drive to Team Drive
-# - [ ] publicly shared folder to publicly shared folder (with write privilege)
-# - [ ] Team Drive to publicly shared folder
-#   `python3 .\rclone_sa_magic.py -s SourceID -d DestinationID -dp DestinationPathName -b 10`
-#
-# - [x] local to Team Drive
-# - [ ] local to private folder
-# - [ ] private folder to any (think service accounts cannot do anything about private folder)
-#
 from __future__ import print_function
 import argparse
 import glob
@@ -71,43 +55,38 @@ def parse_args():
                         help='the id of source. Team Drive id or publicly shared folder id')
     parser.add_argument('-d', '--destination_id', type=str, required=True,
                         help='the id of destination. Team Drive id or publicly shared folder id')
-
     parser.add_argument('-sp', '--source_path', type=str, default="",
                         help='the folder path of source. In Google Drive or local.')
     parser.add_argument('-dp', '--destination_path', type=str, default="",
                         help='the folder path of destination. In Google Drive.')
-
     # if there are some special symbols in source path, please use this
     # path id (publicly shared folder or folder inside team drive)
     parser.add_argument('-spi', '--source_path_id', type=str, default="",
                         help='the folder path id (rather than name) of source. In Google Drive.')
-
     parser.add_argument('-sa', '--service_account', type=str, default="accounts",
                         help='the folder path of json files for service accounts.')
     parser.add_argument('-cp', '--check_path', action="store_true",
                         help='if check src/dst path or not.')
-
     parser.add_argument('-p', '--port', type=int, default=5572,
                         help='the port to run rclone rc. set it to different one if you want to run other instance.')
-
     parser.add_argument('-b', '--begin_sa_id', type=int, default=1,
                         help='the begin id of sa for source')
     parser.add_argument('-e', '--end_sa_id', type=int, default=600,
                         help='the end id of sa for destination')
-
     parser.add_argument('-c', '--rclone_config_file', type=str,
                         help='config file path of rclone')
+    parser.add_argument('--source_token', type=str, default="",
+                        help='drive token of main account')
+    parser.add_argument('--log_level', type=str, default="NOTICE",
+                        help='This sets the log level for rclone')
     parser.add_argument('-test', '--test_only', action="store_true",
                         help='for test: make rclone print some more information.')
     parser.add_argument('-t', '--dry_run', action="store_true",
                         help='for test: make rclone dry-run.')
-
     parser.add_argument('--disable_list_r', action="store_true",
                         help='for debug. do not use this.')
-
     parser.add_argument('--crypt', action="store_true",
                         help='for test: crypt remote destination.')
-
     parser.add_argument('--cache', action="store_true",
                         help="for test: cache the remote destination.")
 
@@ -122,10 +101,22 @@ def gen_rclone_cfg(args):
     if len(sa_files) == 0:
         sys.exit('No json files found in ./{}'.format(args.service_account))
 
+    fix_src_token = None
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    if args.source_token == "":
+        pass
+    else:
+        token_file = os.path.join(dir_path, args.source_token)
+        if not os.path.isfile(token_file):
+            sys.exit('Token {} not found'.format(token_file))
+        else:
+            with open(token_file, 'r') as file:
+                fix_src_token = file.read().replace('\n', '')
+
     with open(output_of_config_file, 'w') as fp:
         for i, filename in enumerate(sa_files):
 
-            dir_path = os.path.dirname(os.path.realpath(__file__))
             filename = os.path.join(dir_path, filename)
             filename = filename.replace(os.sep, '/')
 
@@ -138,11 +129,17 @@ def gen_rclone_cfg(args):
                 else:
                     sys.exit('Wrong length of team_drive_id or publicly shared root_folder_id')
 
-                text_to_write = "[{}{:03d}]\n" \
-                                "type = drive\n" \
-                                "scope = drive\n" \
-                                "service_account_file = {}\n" \
-                                "{} = {}\n".format('src', i + 1, filename, folder_or_team_drive_src, args.source_id)
+                src_text_to_write = ""
+                src_text_to_write += "[{}{:03d}]\n".format('src', i + 1)
+                src_text_to_write += "type = drive\n"
+                src_text_to_write += "scope = drive\n"
+
+                if fix_src_token is None:
+                    src_text_to_write += "service_account_file = {}\n".format(filename)
+                else:
+                    src_text_to_write += "token = {}\n".
+                
+                src_text_to_write += "{} = {}\n".format(folder_or_team_drive_src, args.source_id)
 
                 # use path id instead path name
                 if args.source_path_id:
@@ -247,14 +244,12 @@ def main():
     end_id = args.end_sa_id
 
     config_file = args.rclone_config_file
-    if config_file is None:
+    if config_file is not None:
+        pass
+    else:
         print('generating rclone config file.')
         config_file, end_id = gen_rclone_cfg(args)
         print('rclone config file generated.')
-    else:
-        return print('not supported yet.')
-        pass
-        # need parse labels from config files
 
     time_start = time.time()
     print("Start: {}".format(time.strftime("%H:%M:%S")))
@@ -301,12 +296,20 @@ def main():
         if args.dry_run:
             rclone_cmd += "--dry-run "
         # --fast-list is default adopted in the latest rclone
-        rclone_cmd += "--drive-server-side-across-configs --rc --rc-addr=\"localhost:{}\" -vv --ignore-existing ".format(args.port)
-        rclone_cmd += "--tpslimit {} --transfers {} --drive-chunk-size 32M ".format(TPSLIMIT, TRANSFERS)
+        rclone_cmd += "--drive-server-side-across-configs --rc --rc-addr=\"localhost:{}\" ".format(args.port)
+        rclone_cmd += "--tpslimit {} --transfers {} ".format(TPSLIMIT, TRANSFERS)
         if args.disable_list_r:
             rclone_cmd += "--disable ListR "
-        rclone_cmd += "--drive-acknowledge-abuse --ignore-checksum --log-file={} \"{}\" \"{}\"".format(logfile, src_full_path,
-                                                                                     dst_full_path)
+
+        if not args.source_token == "":
+            rclone_cmd += "--disable copy "
+        
+        rclone_cmd += "--drive-acknowledge-abuse "
+        rclone_cmd += "--drive-chunk-size 32M "
+        rclone_cmd += "--ignore-existing "
+        rclone_cmd += "--ignore-checksum "
+        rclone_cmd += "\"{}\" \"{}\" ".format(src_full_path, dst_full_path)
+        rclone_cmd += "--log-file={} --log-level{} ".format(logfile, args.log_level)
 
         if not is_windows():
             rclone_cmd = rclone_cmd + " &"
