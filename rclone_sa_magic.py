@@ -139,7 +139,7 @@ def gen_rclone_cfg(args):
                 if fix_src_token is None:
                     src_text_to_write += "service_account_file = {}\n".format(filename)
                 else:
-                    src_text_to_write += "token = {}\n".
+                    src_text_to_write += "token = {}\n".format(fix_src_token)
                 
                 src_text_to_write += "{} = {}\n".format(folder_or_team_drive_src, args.source_id)
 
