@@ -148,16 +148,16 @@ def gen_rclone_cfg(args):
                     # for team drive only
                     if len(args.source_id) == 19:
                         if len(args.source_path_id) == 33:
-                            text_to_write += 'root_folder_id = {}\n'.format(args.source_path_id)
+                            src_text_to_write += 'root_folder_id = {}\n'.format(args.source_path_id)
                         else:
                             sys.exit('Wrong length of source_path_id')
                     else:
                         sys.exit('For publicly shared folder please do not set -spi flag')
 
-                text_to_write += "\n"
+                src_text_to_write += "\n"
 
                 try:
-                    fp.write(text_to_write)
+                    fp.write(src_text_to_write)
                 except:
                     sys.exit("failed to write {} to {}".format(args.source_id, output_of_config_file))
             else:
